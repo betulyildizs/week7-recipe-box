@@ -5,23 +5,24 @@ agents and a generator–critic loop.
 
 ## Setup
 ```bash
-pip install -r requirements.txt
-pytest                      # 3 tests should pass
-uvicorn main:app --reload   # http://localhost:8000  (UI at /, docs at /docs)
+python -m pip install -r requirements.txt
+python -m pytest -q         # 24 tests
+uvicorn main:app --reload   # http://localhost:8000 (UI at /, API docs at /docs)
 ```
 
 ## Endpoints
-- `POST /recipes` `{ "title": ..., "ingredients": [...], "tags": [...] }`
-- `GET /recipes`, `GET /recipes?tag=breakfast` (filters by exact tag),
-  `GET /recipes/{id}`
-- `GET /recipes/{id}/scaled?factor=2` returns the recipe with leading numeric
-  ingredient quantities multiplied by the positive scaling factor.
-- `GET /shopping-list?ids=1,2` returns the ordered, de-duplicated ingredients for the requested recipes.
+- `POST /recipes` — create a recipe with `title`, `ingredients`, and `tags`.
+- `GET /recipes` — list recipes; `GET /recipes?tag=breakfast` filters by exact tag.
+- `GET /recipes/{id}` — retrieve one recipe.
+- `GET /shopping-list?ids=1,2` — combine ingredients in recipe order, removing
+  duplicate ingredient strings.
+- `GET /recipes/{id}/scaled?factor=2` — scale leading numeric ingredient
+  quantities by a positive factor; non-quantity ingredients are unchanged.
 
 ## Parallel work with git worktrees
 ```bash
-git worktree add ../recipe-task-a -b task-a
-git worktree add ../recipe-task-b -b task-b
+git worktree add ../recipe-task-a -b feat/shopping-list
+git worktree add ../recipe-task-b -b feat/tag-filter
 ```
 
 ## Files
