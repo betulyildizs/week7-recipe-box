@@ -14,6 +14,8 @@ uvicorn main:app --reload   # http://localhost:8000  (UI at /, docs at /docs)
 - `POST /recipes` `{ "title": ..., "ingredients": [...], "tags": [...] }`
 - `GET /recipes`, `GET /recipes?tag=breakfast` (filters by exact tag),
   `GET /recipes/{id}`
+- `GET /recipes/{id}/scaled?factor=2` returns the recipe with leading numeric
+  ingredient quantities multiplied by the positive scaling factor.
 - `GET /shopping-list?ids=1,2` returns the ordered, de-duplicated ingredients for the requested recipes.
 
 ## Parallel work with git worktrees
