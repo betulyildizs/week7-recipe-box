@@ -12,7 +12,8 @@ uvicorn main:app --reload   # http://localhost:8000  (UI at /, docs at /docs)
 
 ## Endpoints
 - `POST /recipes` `{ "title": ..., "ingredients": [...], "tags": [...] }`
-- `GET /recipes`, `GET /recipes/{id}`
+- `GET /recipes`, `GET /recipes?tag=breakfast` (filters by exact tag),
+  `GET /recipes/{id}`
 - `GET /shopping-list?ids=1,2` returns the ordered, de-duplicated ingredients for the requested recipes.
 
 ## Parallel work with git worktrees
