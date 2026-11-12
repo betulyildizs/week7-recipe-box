@@ -11,8 +11,10 @@ Test:
     pytest
 """
 import json
+import re
 import sqlite3
 from contextlib import closing
+from decimal import Decimal, DecimalException
 from pathlib import Path
 
 from fastapi import FastAPI, HTTPException, Query
@@ -21,6 +23,7 @@ from pydantic import BaseModel
 
 BASE = Path(__file__).parent
 DB_PATH = BASE / "recipes.db"
+INGREDIENT_QUANTITY_RE = re.compile(r"^(\s*)(\d+(?:\.\d+)?)(\s+.+)$")
 
 app = FastAPI(title="Recipe Box")
 
@@ -60,6 +63,24 @@ def _row_to_recipe(row: sqlite3.Row) -> dict:
         "ingredients": json.loads(row["ingredients"]),
         "tags": json.loads(row["tags"]),
     }
+
+
+def _scale_ingredient(ingredient: str, factor: Decimal) -> str:
+    match = INGREDIENT_QUANTITY_RE.match(ingredient)
+    if match is None:
+        return ingredient
+
+    try:
+        quantity = Decimal(match.group(2)) * factor
+    except DecimalException as exc:
+        raise HTTPException(
+            status_code=422,
+            detail="scaled ingredient quantity is too large",
+        ) from exc
+    scaled_quantity = format(quantity, "f")
+    if "." in scaled_quantity:
+        scaled_quantity = scaled_quantity.rstrip("0").rstrip(".")
+    return f"{match.group(1)}{scaled_quantity}{match.group(3)}"
 
 
 @app.get("/")
@@ -132,3 +153,20 @@ def get_recipe(recipe_id: int):
     if row is None:
         raise HTTPException(status_code=404, detail="unknown recipe")
     return _row_to_recipe(row)
+
+
+@app.get("/recipes/{recipe_id}/scaled")
+def get_scaled_recipe(recipe_id: int, factor: Decimal = Query(..., gt=0)):
+    if not factor.is_finite():
+        raise HTTPException(status_code=422, detail="factor must be finite and positive")
+
+    with closing(get_db()) as conn:
+        row = conn.execute("SELECT * FROM recipes WHERE id = ?", (recipe_id,)).fetchone()
+    if row is None:
+        raise HTTPException(status_code=404, detail="unknown recipe")
+
+    recipe = _row_to_recipe(row)
+    recipe["ingredients"] = [
+        _scale_ingredient(ingredient, factor) for ingredient in recipe["ingredients"]
+    ]
+    return recipe

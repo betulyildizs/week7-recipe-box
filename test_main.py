@@ -38,6 +38,92 @@ def test_unknown_recipe_404(client):
     assert r.status_code == 404
 
 
+def test_scaled_recipe_multiplies_quantities_and_preserves_other_fields(client):
+    recipe = client.post(
+        "/recipes",
+        json={
+            "title": "Pancakes",
+            "ingredients": ["200 g flour", "1.5 cups milk", "salt to taste"],
+            "tags": ["breakfast"],
+        },
+    ).json()
+
+    response = client.get(f"/recipes/{recipe['id']}/scaled", params={"factor": "2"})
+
+    assert response.status_code == 200
+    assert response.json() == {
+        **recipe,
+        "ingredients": ["400 g flour", "3 cups milk", "salt to taste"],
+    }
+
+
+@pytest.mark.parametrize(
+    ("factor", "expected_ingredients"),
+    [
+        ("0.5", ["100 g flour", "0.75 cups milk", "salt to taste"]),
+        ("2.25", ["450 g flour", "3.375 cups milk", "salt to taste"]),
+    ],
+)
+def test_scaled_recipe_supports_fractional_factors_and_preserves_recipe_fields(
+    client, factor, expected_ingredients
+):
+    recipe = client.post(
+        "/recipes",
+        json={
+            "title": "Pancakes",
+            "ingredients": ["200 g flour", "1.5 cups milk", "salt to taste"],
+            "tags": ["breakfast", "brunch"],
+        },
+    ).json()
+
+    response = client.get(
+        f"/recipes/{recipe['id']}/scaled",
+        params={"factor": factor},
+    )
+
+    assert response.status_code == 200
+    assert response.json() == {
+        **recipe,
+        "ingredients": expected_ingredients,
+    }
+
+
+def test_scaled_recipe_returns_404_for_unknown_recipe(client):
+    response = client.get("/recipes/99999/scaled", params={"factor": "2"})
+
+    assert response.status_code == 404
+    assert response.json() == {"detail": "unknown recipe"}
+
+
+def test_scaled_recipe_rejects_factor_that_overflows_decimal(client):
+    recipe_id = client.post(
+        "/recipes",
+        json={"title": "Bread", "ingredients": ["200 g flour"]},
+    ).json()["id"]
+
+    response = client.get(
+        f"/recipes/{recipe_id}/scaled",
+        params={"factor": "1e999999"},
+    )
+
+    assert response.status_code == 422
+    assert response.json() == {
+        "detail": "scaled ingredient quantity is too large"
+    }
+
+
+@pytest.mark.parametrize("factor", ["0", "-1", "Infinity"])
+def test_scaled_recipe_rejects_nonpositive_or_nonfinite_factor(client, factor):
+    recipe_id = client.post("/recipes", json={"title": "Bread"}).json()["id"]
+
+    response = client.get(
+        f"/recipes/{recipe_id}/scaled",
+        params={"factor": factor},
+    )
+
+    assert response.status_code == 422
+
+
 def test_list_recipes_filters_by_exact_tag(client):
     client.post("/recipes", json={"title": "Breakfast", "tags": ["breakfast"]})
     client.post("/recipes", json={"title": "Brunch", "tags": ["breakfast", "brunch"]})
