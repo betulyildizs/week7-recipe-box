@@ -57,6 +57,37 @@ def test_scaled_recipe_multiplies_quantities_and_preserves_other_fields(client):
     }
 
 
+@pytest.mark.parametrize(
+    ("factor", "expected_ingredients"),
+    [
+        ("0.5", ["100 g flour", "0.75 cups milk", "salt to taste"]),
+        ("2.25", ["450 g flour", "3.375 cups milk", "salt to taste"]),
+    ],
+)
+def test_scaled_recipe_supports_fractional_factors_and_preserves_recipe_fields(
+    client, factor, expected_ingredients
+):
+    recipe = client.post(
+        "/recipes",
+        json={
+            "title": "Pancakes",
+            "ingredients": ["200 g flour", "1.5 cups milk", "salt to taste"],
+            "tags": ["breakfast", "brunch"],
+        },
+    ).json()
+
+    response = client.get(
+        f"/recipes/{recipe['id']}/scaled",
+        params={"factor": factor},
+    )
+
+    assert response.status_code == 200
+    assert response.json() == {
+        **recipe,
+        "ingredients": expected_ingredients,
+    }
+
+
 def test_scaled_recipe_returns_404_for_unknown_recipe(client):
     response = client.get("/recipes/99999/scaled", params={"factor": "2"})
 
