@@ -1,11 +1,19 @@
+import pytest
 from fastapi.testclient import TestClient
 
+import main
 from main import app
 
-client = TestClient(app)
+
+@pytest.fixture
+def client(tmp_path, monkeypatch):
+    monkeypatch.setattr(main, "DB_PATH", tmp_path / "recipes.db")
+    main.init_db()
+    with TestClient(app) as test_client:
+        yield test_client
 
 
-def test_create_and_get_recipe():
+def test_create_and_get_recipe(client):
     r = client.post(
         "/recipes",
         json={"title": "Pancakes", "ingredients": ["flour", "milk"], "tags": ["breakfast"]},
@@ -18,13 +26,57 @@ def test_create_and_get_recipe():
     assert r2.json()["tags"] == ["breakfast"]
 
 
-def test_list_recipes():
+def test_list_recipes(client):
     client.post("/recipes", json={"title": "Toast"})
     r = client.get("/recipes")
     assert r.status_code == 200
     assert any(rec["title"] == "Toast" for rec in r.json())
 
 
-def test_unknown_recipe_404():
+def test_unknown_recipe_404(client):
     r = client.get("/recipes/99999")
     assert r.status_code == 404
+
+
+def test_shopping_list_merges_and_deduplicates_ingredients(client):
+    first = client.post(
+        "/recipes",
+        json={"title": "Pancakes", "ingredients": ["flour", "milk", "flour"]},
+    ).json()["id"]
+    second = client.post(
+        "/recipes",
+        json={"title": "Bread", "ingredients": ["flour", "yeast", "water"]},
+    ).json()["id"]
+
+    response = client.get(f"/shopping-list?ids={first}, {second},{first}")
+
+    assert response.status_code == 200
+    assert response.json() == ["flour", "milk", "yeast", "water"]
+
+
+def test_shopping_list_returns_404_for_missing_recipe(client):
+    existing = client.post(
+        "/recipes",
+        json={"title": "Soup", "ingredients": ["water"]},
+    ).json()["id"]
+
+    response = client.get(f"/shopping-list?ids={existing},99999")
+
+    assert response.status_code == 404
+    assert response.json() == {"detail": "unknown recipe"}
+
+
+@pytest.mark.parametrize("ids", ["", "1,,2", "one", "0", "-1", "1.5"])
+def test_shopping_list_rejects_malformed_ids(client, ids):
+    response = client.get("/shopping-list", params={"ids": ids})
+
+    assert response.status_code == 422
+    assert response.json() == {
+        "detail": "ids must be a comma-separated list of positive integers"
+    }
+
+
+def test_shopping_list_requires_ids_parameter(client):
+    response = client.get("/shopping-list")
+
+    assert response.status_code == 422
