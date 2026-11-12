@@ -105,3 +105,10 @@ The application is available at `http://localhost:8000/`; interactive API
 documentation is at `http://localhost:8000/docs`.
 
 **GitHub repository URL:** Pending publication.
+## Visual Evidence
+### Figure 1 — Concurrent Copilot Agent Sessions
+Two independent GitHub Copilot agents working in separate VS Code windows on Shopping List and Tag Filter tasks.
+![Concurrent Copilot agents](docs/evidence/concurrent-agents.png)
+### Figure 2 — Git Worktree Isolation
+Git worktree listing showing the main project and two isolated feature branches.
+![Git worktree listing](docs/evidence/git-worktrees.png)
