@@ -64,6 +64,23 @@ def test_scaled_recipe_returns_404_for_unknown_recipe(client):
     assert response.json() == {"detail": "unknown recipe"}
 
 
+def test_scaled_recipe_rejects_factor_that_overflows_decimal(client):
+    recipe_id = client.post(
+        "/recipes",
+        json={"title": "Bread", "ingredients": ["200 g flour"]},
+    ).json()["id"]
+
+    response = client.get(
+        f"/recipes/{recipe_id}/scaled",
+        params={"factor": "1e999999"},
+    )
+
+    assert response.status_code == 422
+    assert response.json() == {
+        "detail": "scaled ingredient quantity is too large"
+    }
+
+
 @pytest.mark.parametrize("factor", ["0", "-1", "Infinity"])
 def test_scaled_recipe_rejects_nonpositive_or_nonfinite_factor(client, factor):
     recipe_id = client.post("/recipes", json={"title": "Bread"}).json()["id"]

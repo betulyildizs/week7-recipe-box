@@ -14,7 +14,7 @@ import json
 import re
 import sqlite3
 from contextlib import closing
-from decimal import Decimal
+from decimal import Decimal, DecimalException
 from pathlib import Path
 
 from fastapi import FastAPI, HTTPException, Query
@@ -70,7 +70,13 @@ def _scale_ingredient(ingredient: str, factor: Decimal) -> str:
     if match is None:
         return ingredient
 
-    quantity = Decimal(match.group(2)) * factor
+    try:
+        quantity = Decimal(match.group(2)) * factor
+    except DecimalException as exc:
+        raise HTTPException(
+            status_code=422,
+            detail="scaled ingredient quantity is too large",
+        ) from exc
     scaled_quantity = format(quantity, "f")
     if "." in scaled_quantity:
         scaled_quantity = scaled_quantity.rstrip("0").rstrip(".")
